@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import { RefreshCw, Github, Zap, Shield, Music2 } from 'lucide-react';
+import { RefreshCw, Zap, Shield, Music2 } from 'lucide-react';
 import { FileDropzone } from '@/components/FileDropzone';
 import { ConversionProgress } from '@/components/ConversionProgress';
-import { ConversionResults } from '@/components/ConversionResults';
+import { SQLiteViewer } from '@/components/SQLiteViewer';
 import { Button } from '@/components/ui/button';
 import { 
   parseKreateSQLite, 
@@ -72,6 +72,20 @@ const Index = () => {
     }
   }, []);
 
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    // Name reflects it was converted from sqlite
+    const baseName = fileName.replace(/\.[^/.]+$/, '');
+    link.download = `cubic_music_from_${baseName}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [csvContent, fileName]);
+
   const handleReset = () => {
     setStatus('idle');
     setProgress(0);
@@ -84,153 +98,122 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero section */}
-      <div className="relative overflow-hidden">
-        {/* Background effects */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-20" 
-               style={{ background: 'var(--gradient-glow)' }} />
-          <div className="absolute bottom-0 right-1/4 w-72 h-72 rounded-full opacity-15"
-               style={{ background: 'radial-gradient(ellipse at center, hsl(320 70% 55% / 0.3), transparent 70%)' }} />
+      <div className="container max-w-2xl mx-auto px-4 py-6 sm:py-12">
+        {/* Header */}
+        <header className="text-center mb-6 sm:mb-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-4">
+            <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+            <span className="text-xs sm:text-sm font-medium text-primary">Kreate → Cubic Music</span>
+          </div>
+          
+          <h1 className="text-2xl sm:text-4xl font-bold mb-2 sm:mb-3">
+            <span className="gradient-text">Backup Converter</span>
+          </h1>
+          
+          <p className="text-sm sm:text-base text-muted-foreground max-w-lg mx-auto px-4">
+            Convert your Kreate backup to Cubic Music format. 
+            Fixes malformed data and preserves your playlists.
+          </p>
+        </header>
+
+        {/* Feature badges */}
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-6 sm:mb-10">
+          <FeatureBadge icon={<Shield className="w-3 h-3 sm:w-4 sm:h-4" />} text="Browser Only" />
+          <FeatureBadge icon={<Music2 className="w-3 h-3 sm:w-4 sm:h-4" />} text="Keeps Playlists" />
+          <FeatureBadge icon={<Zap className="w-3 h-3 sm:w-4 sm:h-4" />} text="Instant" />
         </div>
 
-        <div className="relative container max-w-4xl mx-auto px-4 py-12 md:py-20">
-          {/* Header */}
-          <header className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-primary">Kreate → Cubic Music</span>
-            </div>
-            
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
-              <span className="gradient-text">CSV Converter</span>
-            </h1>
-            
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Convert your Kreate backups to Cubic Music compatible format. 
-              Fixes malformed CSV entries, cleans corrupted data, and preserves your playlists.
-            </p>
-          </header>
+        {/* Main converter area */}
+        <div className="space-y-4 sm:space-y-6">
+          {status === 'idle' && (
+            <FileDropzone 
+              onFileSelect={handleFileSelect}
+              isProcessing={false}
+              acceptedFormats={['.sqlite', '.db', '.csv']}
+            />
+          )}
 
-          {/* Features */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-            <FeatureCard 
-              icon={<Shield className="w-5 h-5" />}
-              title="Safe & Secure"
-              description="All processing happens in your browser"
-            />
-            <FeatureCard 
-              icon={<Music2 className="w-5 h-5" />}
-              title="Playlist Preservation"
-              description="Keeps all your playlists intact"
-            />
-            <FeatureCard 
-              icon={<Zap className="w-5 h-5" />}
-              title="Instant Conversion"
-              description="No uploads, no waiting"
-            />
-          </div>
-
-          {/* Main converter area */}
-          <div className="space-y-6">
-            {status === 'idle' && (
-              <FileDropzone 
-                onFileSelect={handleFileSelect}
-                isProcessing={false}
-                acceptedFormats={['.sqlite', '.db', '.csv']}
+          {status !== 'idle' && status !== 'complete' && (
+            <>
+              <ConversionProgress 
+                status={status}
+                progress={progress}
+                currentStep={currentStep}
               />
-            )}
+              {status === 'error' && (
+                <div className="glass-card rounded-xl p-4 sm:p-6 border-destructive/50">
+                  <p className="text-destructive text-sm sm:text-base mb-4">{errorMessage}</p>
+                  <Button variant="outline" onClick={handleReset} size="sm">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try Again
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
 
-            {status !== 'idle' && status !== 'complete' && (
-              <>
-                <ConversionProgress 
-                  status={status}
-                  progress={progress}
-                  currentStep={currentStep}
-                />
-                {status === 'error' && (
-                  <div className="glass-card rounded-xl p-6 border-destructive/50">
-                    <p className="text-destructive mb-4">{errorMessage}</p>
-                    <Button variant="outline" onClick={handleReset}>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Try Again
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-
-            {status === 'complete' && result && (
-              <>
-                <ConversionResults 
-                  result={result}
-                  csvContent={csvContent}
-                  fileName={fileName}
-                />
-                <Button variant="ghost" onClick={handleReset} className="w-full">
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Convert Another File
-                </Button>
-              </>
-            )}
-          </div>
-
-          {/* Info section */}
-          <section className="mt-16 space-y-8">
-            <h2 className="text-2xl font-bold text-center">Why This Converter?</h2>
-            
-            <div className="glass-card rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <span className="text-warning">⚠️</span>
-                The Kreate Export Problem
-              </h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Kreate's export system has bugs in its CSV generation that create malformed data breaking standard CSV parsing. 
-                This affects not just Cubic Music, but also RiPlay and RiMusic (the original app Kreate was forked from).
-              </p>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Empty values where numbers should be</li>
-                <li>• Incorrect data types</li>
-                <li>• Missing required fields</li>
-                <li>• Format violations that crash parsers</li>
-              </ul>
-            </div>
-
-            <div className="glass-card rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <span className="text-success">✅</span>
-                What This Tool Does
-              </h3>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Detects and fixes Kreate's malformed CSV entries</li>
-                <li>• Cleans corrupted data before import</li>
-                <li>• Extracts songs and playlists from SQLite databases</li>
-                <li>• Generates Cubic Music compatible CSV format</li>
-              </ul>
-            </div>
-          </section>
-
-          {/* Footer */}
-          <footer className="mt-16 pt-8 border-t border-border/50 text-center text-sm text-muted-foreground">
-            <p>Made with 💜 for the Cubic Music community</p>
-            <p className="mt-2 text-xs">
-              This tool processes files entirely in your browser. No data is uploaded to any server.
-            </p>
-          </footer>
+          {status === 'complete' && result && (
+            <>
+              <SQLiteViewer 
+                result={result}
+                onDownload={handleDownload}
+              />
+              <Button variant="ghost" onClick={handleReset} className="w-full" size="sm">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Convert Another File
+              </Button>
+            </>
+          )}
         </div>
+
+        {/* Info section */}
+        {status === 'idle' && (
+          <section className="mt-8 sm:mt-12 space-y-4">
+            <details className="glass-card rounded-xl overflow-hidden">
+              <summary className="p-3 sm:p-4 cursor-pointer hover:bg-muted/30 transition-colors text-sm sm:text-base font-medium">
+                ⚠️ Why is this needed?
+              </summary>
+              <div className="px-3 sm:px-4 pb-3 sm:pb-4 text-xs sm:text-sm text-muted-foreground space-y-2">
+                <p>Kreate's export has bugs that create malformed CSV data.</p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>Empty values where numbers should be</li>
+                  <li>Incorrect data types</li>
+                  <li>Format violations that crash parsers</li>
+                </ul>
+                <p className="pt-2">This affects Cubic Music, RiPlay, and RiMusic.</p>
+              </div>
+            </details>
+
+            <details className="glass-card rounded-xl overflow-hidden">
+              <summary className="p-3 sm:p-4 cursor-pointer hover:bg-muted/30 transition-colors text-sm sm:text-base font-medium">
+                ✅ What this tool does
+              </summary>
+              <div className="px-3 sm:px-4 pb-3 sm:pb-4 text-xs sm:text-sm text-muted-foreground">
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>Reads SQLite databases directly</li>
+                  <li>Fixes malformed CSV entries</li>
+                  <li>Maps Kreate schema to Cubic Music format</li>
+                  <li>Generates clean, importable CSV</li>
+                </ul>
+              </div>
+            </details>
+          </section>
+        )}
+
+        {/* Footer */}
+        <footer className="mt-8 sm:mt-12 text-center text-xs text-muted-foreground">
+          <p>All processing happens in your browser. No data uploaded.</p>
+        </footer>
       </div>
     </div>
   );
 };
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+function FeatureBadge({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
-    <div className="glass-card rounded-xl p-4 text-center">
-      <div className="inline-flex p-3 rounded-lg bg-primary/10 text-primary mb-3">
-        {icon}
-      </div>
-      <h3 className="font-medium mb-1">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-muted/50 border border-border/50">
+      <span className="text-primary">{icon}</span>
+      <span className="text-xs sm:text-sm text-muted-foreground">{text}</span>
     </div>
   );
 }
