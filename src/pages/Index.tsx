@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
   parseKreateSQLite, 
   parseAndSanitizeCSV, 
-  generateCubicMusicCSV, 
+  generateCubicMusicSQLite, 
   detectFileType,
   type ConversionResult 
 } from '@/lib/kreate-converter';
@@ -19,7 +19,7 @@ const Index = () => {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState<string>('');
   const [result, setResult] = useState<ConversionResult | null>(null);
-  const [csvContent, setCsvContent] = useState<string>('');
+  const [sqliteData, setSqliteData] = useState<Uint8Array | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -55,13 +55,13 @@ const Index = () => {
 
       setProgress(70);
       setStatus('converting');
-      setCurrentStep('Generating Cubic Music compatible CSV...');
+      setCurrentStep('Generating Cubic Music compatible SQLite...');
 
-      const csv = generateCubicMusicCSV(conversionResult);
+      const sqlite = await generateCubicMusicSQLite(conversionResult);
 
       setProgress(100);
       setResult(conversionResult);
-      setCsvContent(csv);
+      setSqliteData(sqlite);
       setStatus('complete');
       setCurrentStep('Conversion complete!');
 
@@ -73,25 +73,25 @@ const Index = () => {
   }, []);
 
   const handleDownload = useCallback(() => {
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    if (!sqliteData) return;
+    
+    const blob = new Blob([new Uint8Array(sqliteData)], { type: 'application/vnd.sqlite3' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    // Name reflects it was converted from sqlite
-    const baseName = fileName.replace(/\.[^/.]+$/, '');
-    link.download = `cubic_music_from_${baseName}.csv`;
+    link.download = 'kreatetocubicfixedbackup.sqlite';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, [csvContent, fileName]);
+  }, [sqliteData]);
 
   const handleReset = () => {
     setStatus('idle');
     setProgress(0);
     setCurrentStep('');
     setResult(null);
-    setCsvContent('');
+    setSqliteData(null);
     setFileName('');
     setErrorMessage('');
   };
