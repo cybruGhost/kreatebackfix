@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Database, Table as TableIcon, ArrowRight, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Database, Download, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -10,117 +10,121 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import type { ConversionResult } from '@/lib/kreate-converter';
+import type { ConversionResult, Playlist } from '@/lib/kreate-converter';
+import { SchemaComparison } from '@/components/SchemaComparison';
+import { CleaningReport } from '@/components/CleaningReport';
+import { PlaylistSelector } from '@/components/PlaylistSelector';
+import { OutputPreview } from '@/components/OutputPreview';
 
 interface SQLiteViewerProps {
   result: ConversionResult;
-  onDownload: () => void;
+  onDownload: (selectedPlaylists: number[]) => void;
 }
 
-// Cubic Music expected schema
-const CUBIC_MUSIC_SCHEMA = {
-  headers: ['PlaylistBrowseId', 'PlaylistName', 'SongId', 'Title', 'Artists', 'Duration', 'ThumbnailUrl'],
-  description: 'Expected format for Cubic Music import'
-};
-
 export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
-  const [expandedTable, setExpandedTable] = useState<string | null>(null);
-  const [showMapping, setShowMapping] = useState(true);
+  const [playlists, setPlaylists] = useState<Playlist[]>(result.playlists);
+  const [showSchema, setShowSchema] = useState(true);
   const [showPreview, setShowPreview] = useState(true);
+  const [expandedTable, setExpandedTable] = useState<string | null>(null);
 
   const totalSongs = result.songs.length;
-  const totalPlaylists = result.playlists.length;
-  const songsInPlaylists = result.playlists.reduce((acc, p) => acc + p.songs.length, 0);
+  const selectedPlaylists = playlists.filter(p => p.selected);
+  const songsInSelectedPlaylists = selectedPlaylists.reduce((acc, p) => acc + p.songs.length, 0);
+
+  const handlePlaylistSelectionChange = useCallback((playlistId: number, selected: boolean) => {
+    setPlaylists(prev => prev.map(p => 
+      p.id === playlistId ? { ...p, selected } : p
+    ));
+  }, []);
+
+  const handleSelectAll = useCallback((selected: boolean) => {
+    setPlaylists(prev => prev.map(p => ({ ...p, selected })));
+  }, []);
+
+  const handleDownload = () => {
+    const selectedIds = playlists.filter(p => p.selected).map(p => p.id);
+    onDownload(selectedIds);
+  };
 
   return (
     <div className="w-full space-y-4">
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <StatBadge label="Songs" value={totalSongs} color="primary" />
-        <StatBadge label="Playlists" value={totalPlaylists} color="accent" />
-        <StatBadge label="In Playlists" value={songsInPlaylists} color="success" />
+        <StatBadge label="Total Songs" value={totalSongs} color="primary" />
+        <StatBadge label="Playlists" value={playlists.length} color="accent" />
+        <StatBadge label="To Export" value={songsInSelectedPlaylists} color="success" />
       </div>
 
-      {/* Schema Mapping */}
+      {/* Schema Comparison */}
       <div className="glass-card rounded-xl overflow-hidden">
         <button
-          onClick={() => setShowMapping(!showMapping)}
+          onClick={() => setShowSchema(!showSchema)}
           className="w-full p-3 sm:p-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
         >
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-            <span className="font-medium text-sm sm:text-base">Schema Mapping</span>
+            <span className="font-medium text-sm sm:text-base">Database Analysis</span>
           </div>
-          {showMapping ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          {showSchema ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
         
-        {showMapping && (
-          <div className="p-3 sm:p-4 pt-0 space-y-3 sm:space-y-4">
-            {/* Kreate Tables Found */}
-            <div className="space-y-2">
-              <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Kreate Database Tables</h4>
-              {result.tableInfo.length > 0 ? (
-                <div className="space-y-2">
-                  {result.tableInfo.map((table, i) => (
-                    <div key={i} className="bg-muted/30 rounded-lg overflow-hidden">
-                      <button
-                        onClick={() => setExpandedTable(expandedTable === table.name ? null : table.name)}
-                        className="w-full p-2 sm:p-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <TableIcon className="w-3 h-3 sm:w-4 sm:h-4 text-primary shrink-0" />
-                          <span className="font-mono text-xs sm:text-sm truncate">{table.name}</span>
-                          <span className="text-xs text-muted-foreground shrink-0">({table.rowCount} rows)</span>
-                        </div>
-                        {expandedTable === table.name ? (
-                          <EyeOff className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-                        ) : (
-                          <Eye className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-                        )}
-                      </button>
-                      {expandedTable === table.name && (
-                        <div className="px-2 sm:px-3 pb-2 sm:pb-3">
-                          <div className="flex flex-wrap gap-1">
-                            {table.columns.map((col, j) => (
-                              <span key={j} className="px-2 py-0.5 bg-muted rounded text-xs font-mono">
-                                {col}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs sm:text-sm text-muted-foreground">No tables found in database</p>
-              )}
-            </div>
-
-            {/* Mapping Arrow */}
-            <div className="flex items-center justify-center">
-              <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full">
-                <ArrowRight className="w-4 h-4 text-primary" />
-                <span className="text-xs sm:text-sm text-primary font-medium">Mapped to</span>
-              </div>
-            </div>
-
-            {/* Cubic Music Schema */}
-            <div className="space-y-2">
-              <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Cubic Music Format</h4>
-              <div className="bg-success/10 border border-success/20 rounded-lg p-2 sm:p-3">
-                <div className="flex flex-wrap gap-1">
-                  {CUBIC_MUSIC_SCHEMA.headers.map((header, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-success/20 text-success rounded text-xs font-mono">
-                      {header}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+        {showSchema && (
+          <div className="p-3 sm:p-4 pt-0">
+            <SchemaComparison 
+              kreateSchema={result.kreateSchema} 
+              cubicMusicSchema={result.cubicMusicSchema} 
+            />
           </div>
         )}
       </div>
+
+      {/* Kreate Tables Detail */}
+      {result.tableInfo.length > 0 && (
+        <div className="glass-card rounded-xl p-3 sm:p-4">
+          <h4 className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">
+            Kreate Source Tables
+          </h4>
+          <div className="space-y-2">
+            {result.tableInfo.map((table, i) => (
+              <div key={i} className="bg-muted/30 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setExpandedTable(expandedTable === table.name ? null : table.name)}
+                  className="w-full p-2 sm:p-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono text-xs sm:text-sm truncate">{table.name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      ({table.rowCount} rows)
+                    </span>
+                  </div>
+                  {expandedTable === table.name ? (
+                    <EyeOff className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                  ) : (
+                    <Eye className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                  )}
+                </button>
+                {expandedTable === table.name && (
+                  <div className="px-2 sm:px-3 pb-2 sm:pb-3">
+                    <div className="flex flex-wrap gap-1">
+                      {table.columns.map((col, j) => (
+                        <span key={j} className="px-2 py-0.5 bg-muted rounded text-xs font-mono">
+                          {col.name}
+                          <span className="text-muted-foreground ml-1 text-[10px]">
+                            {col.type}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Cleaning Report */}
+      <CleaningReport report={result.cleaningReport} />
 
       {/* Errors & Warnings */}
       {result.errors.length > 0 && (
@@ -139,7 +143,9 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
       {result.warnings.length > 0 && (
         <details className="glass-card rounded-xl overflow-hidden">
           <summary className="p-3 sm:p-4 cursor-pointer hover:bg-muted/30 transition-colors">
-            <span className="text-warning text-sm sm:text-base font-medium">Warnings ({result.warnings.length})</span>
+            <span className="text-warning text-sm sm:text-base font-medium">
+              Warnings ({result.warnings.length})
+            </span>
           </summary>
           <ul className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-1 text-xs sm:text-sm text-muted-foreground max-h-32 overflow-y-auto">
             {result.warnings.slice(0, 30).map((warning, i) => (
@@ -152,6 +158,24 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
         </details>
       )}
 
+      {/* Playlist Selector */}
+      {playlists.length > 0 && (
+        <PlaylistSelector
+          playlists={playlists}
+          onSelectionChange={handlePlaylistSelectionChange}
+          onSelectAll={handleSelectAll}
+        />
+      )}
+
+      {/* Output Preview */}
+      {totalSongs > 0 && (
+        <OutputPreview
+          songCount={totalSongs}
+          playlistCount={selectedPlaylists.length}
+          mappingCount={songsInSelectedPlaylists}
+        />
+      )}
+
       {/* Data Preview */}
       {totalSongs > 0 && (
         <div className="glass-card rounded-xl overflow-hidden">
@@ -160,8 +184,8 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
             className="w-full p-3 sm:p-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <TableIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-              <span className="font-medium text-sm sm:text-base">Converted Data Preview</span>
+              <Database className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+              <span className="font-medium text-sm sm:text-base">Song Data Preview</span>
             </div>
             {showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
@@ -174,7 +198,6 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
                     <TableHead className="text-xs whitespace-nowrap">Title</TableHead>
                     <TableHead className="text-xs whitespace-nowrap hidden sm:table-cell">Artist</TableHead>
                     <TableHead className="text-xs whitespace-nowrap">Duration</TableHead>
-                    <TableHead className="text-xs whitespace-nowrap hidden md:table-cell">Playlist</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -192,7 +215,9 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
                           )}
                           <div className="min-w-0">
                             <p className="text-xs sm:text-sm truncate">{song.title || 'Unknown'}</p>
-                            <p className="text-xs text-muted-foreground truncate sm:hidden">{song.artists || 'Unknown'}</p>
+                            <p className="text-xs text-muted-foreground truncate sm:hidden">
+                              {song.artists || 'Unknown'}
+                            </p>
                           </div>
                         </div>
                       </TableCell>
@@ -201,9 +226,6 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
                       </TableCell>
                       <TableCell className="text-xs sm:text-sm font-mono">
                         {formatDuration(song.duration)}
-                      </TableCell>
-                      <TableCell className="text-xs sm:text-sm hidden md:table-cell">
-                        <span className="truncate block max-w-[120px]">{song.playlistName || '-'}</span>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -222,11 +244,13 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
       {/* Download Button */}
       {totalSongs > 0 && (
         <Button 
-          onClick={onDownload}
+          onClick={handleDownload}
+          disabled={selectedPlaylists.length === 0 && playlists.length > 0}
           className="w-full h-12 sm:h-14 text-base sm:text-lg glow-effect"
           size="lg"
         >
-          Download Fixed CSV
+          <Download className="w-5 h-5 mr-2" />
+          Download Fixed Backup
         </Button>
       )}
     </div>
