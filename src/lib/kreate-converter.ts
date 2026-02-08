@@ -274,57 +274,82 @@ function sanitizeDuration(value: unknown): string {
   return '0';
 }
 
-// Generate Cubic Music compatible CSV
-export function generateCubicMusicCSV(result: ConversionResult): string {
-  const headers = ['PlaylistBrowseId', 'PlaylistName', 'SongId', 'Title', 'Artists', 'Duration', 'ThumbnailUrl'];
-  const rows: string[] = [headers.join(',')];
+// Generate Cubic Music compatible SQLite database
+export async function generateCubicMusicSQLite(result: ConversionResult): Promise<Uint8Array> {
+  const SqlJs = await getSqlJs();
+  const db = new SqlJs.Database();
 
-  // Add songs with playlist info
-  for (const playlist of result.playlists) {
-    for (const song of playlist.songs) {
-      rows.push(formatCSVRow([
-        song.playlistBrowseId,
-        song.playlistName,
-        song.songId,
-        song.title,
-        song.artists,
-        song.duration,
-        song.thumbnailUrl,
-      ]));
-    }
-  }
+  // Create Song table matching Cubic Music's expected schema
+  db.run(`
+    CREATE TABLE IF NOT EXISTS Song (
+      id TEXT PRIMARY KEY NOT NULL,
+      title TEXT NOT NULL,
+      artistsText TEXT,
+      durationText TEXT,
+      thumbnailUrl TEXT,
+      likedAt INTEGER,
+      totalPlayTimeMs INTEGER DEFAULT 0
+    )
+  `);
 
-  // Add songs without playlists (orphan songs)
-  const songsInPlaylists = new Set(
-    result.playlists.flatMap(p => p.songs.map(s => s.songId))
-  );
-  
+  // Create Playlist table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS Playlist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      browseId TEXT
+    )
+  `);
+
+  // Create SongPlaylistMap junction table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS SongPlaylistMap (
+      songId TEXT NOT NULL,
+      playlistId INTEGER NOT NULL,
+      position INTEGER NOT NULL,
+      PRIMARY KEY (songId, playlistId),
+      FOREIGN KEY (songId) REFERENCES Song(id),
+      FOREIGN KEY (playlistId) REFERENCES Playlist(id)
+    )
+  `);
+
+  // Insert songs
+  const insertSong = db.prepare(`
+    INSERT OR REPLACE INTO Song (id, title, artistsText, durationText, thumbnailUrl, totalPlayTimeMs)
+    VALUES (?, ?, ?, ?, ?, 0)
+  `);
+
   for (const song of result.songs) {
-    if (!songsInPlaylists.has(song.songId)) {
-      rows.push(formatCSVRow([
-        '',
-        '',
-        song.songId,
-        song.title,
-        song.artists,
-        song.duration,
-        song.thumbnailUrl,
-      ]));
-    }
+    // Convert duration seconds to mm:ss format
+    const durationSecs = parseInt(song.duration) || 0;
+    const minutes = Math.floor(durationSecs / 60);
+    const seconds = durationSecs % 60;
+    const durationText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    insertSong.run([song.songId, song.title, song.artists, durationText, song.thumbnailUrl]);
   }
+  insertSong.free();
 
-  return rows.join('\n');
-}
+  // Insert playlists and mappings
+  const insertPlaylist = db.prepare(`INSERT INTO Playlist (name, browseId) VALUES (?, ?)`);
+  const insertMapping = db.prepare(`INSERT OR REPLACE INTO SongPlaylistMap (songId, playlistId, position) VALUES (?, ?, ?)`);
 
-function formatCSVRow(values: string[]): string {
-  return values.map(v => {
-    // Escape quotes and wrap in quotes if contains comma, quote, or newline
-    const escaped = v.replace(/"/g, '""');
-    if (v.includes(',') || v.includes('"') || v.includes('\n')) {
-      return `"${escaped}"`;
-    }
-    return escaped;
-  }).join(',');
+  for (const playlist of result.playlists) {
+    insertPlaylist.run([playlist.name, playlist.browseId]);
+    const playlistId = db.exec("SELECT last_insert_rowid()")[0]?.values[0]?.[0] as number;
+
+    playlist.songs.forEach((song, index) => {
+      insertMapping.run([song.songId, playlistId, index]);
+    });
+  }
+  insertPlaylist.free();
+  insertMapping.free();
+
+  // Export database as binary
+  const data = db.export();
+  db.close();
+  
+  return data;
 }
 
 // Parse and sanitize CSV input
