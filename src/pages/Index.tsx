@@ -19,12 +19,9 @@ const Index = () => {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState<string>('');
   const [result, setResult] = useState<ConversionResult | null>(null);
-  const [sqliteData, setSqliteData] = useState<Uint8Array | null>(null);
-  const [fileName, setFileName] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   const handleFileSelect = useCallback(async (file: File) => {
-    setFileName(file.name);
     setStatus('detecting');
     setProgress(10);
     setCurrentStep('Analyzing file format...');
@@ -53,17 +50,10 @@ const Index = () => {
         throw new Error('Unsupported file format. Please upload a .sqlite, .db, or .csv file.');
       }
 
-      setProgress(70);
-      setStatus('converting');
-      setCurrentStep('Generating Cubic Music compatible SQLite...');
-
-      const sqlite = await generateCubicMusicSQLite(conversionResult);
-
       setProgress(100);
       setResult(conversionResult);
-      setSqliteData(sqlite);
       setStatus('complete');
-      setCurrentStep('Conversion complete!');
+      setCurrentStep('Analysis complete!');
 
     } catch (error) {
       setStatus('error');
@@ -72,27 +62,32 @@ const Index = () => {
     }
   }, []);
 
-  const handleDownload = useCallback(() => {
-    if (!sqliteData) return;
+  const handleDownload = useCallback(async (selectedPlaylists: number[]) => {
+    if (!result) return;
     
-    const blob = new Blob([new Uint8Array(sqliteData)], { type: 'application/vnd.sqlite3' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'kreatetocubicfixedbackup.sqlite';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, [sqliteData]);
+    try {
+      setCurrentStep('Generating SQLite database...');
+      const sqliteData = await generateCubicMusicSQLite(result, selectedPlaylists);
+      
+      const blob = new Blob([new Uint8Array(sqliteData)], { type: 'application/vnd.sqlite3' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'kreatetocubicfixedbackup.sqlite';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+    }
+  }, [result]);
 
   const handleReset = () => {
     setStatus('idle');
     setProgress(0);
     setCurrentStep('');
     setResult(null);
-    setSqliteData(null);
-    setFileName('');
     setErrorMessage('');
   };
 
@@ -191,9 +186,9 @@ const Index = () => {
               <div className="px-3 sm:px-4 pb-3 sm:pb-4 text-xs sm:text-sm text-muted-foreground">
                 <ul className="list-disc list-inside space-y-1 ml-2">
                   <li>Reads SQLite databases directly</li>
-                  <li>Fixes malformed CSV entries</li>
+                  <li>Fixes malformed data entries</li>
                   <li>Maps Kreate schema to Cubic Music format</li>
-                  <li>Generates clean, importable CSV</li>
+                  <li>Generates clean, importable SQLite backup</li>
                 </ul>
               </div>
             </details>
