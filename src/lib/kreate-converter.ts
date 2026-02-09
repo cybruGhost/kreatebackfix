@@ -47,20 +47,20 @@ export const CUBIC_MUSIC_SCHEMA: TableInfo[] = [
   {
     name: 'Song',
     columns: [
-      { name: 'id', type: 'TEXT PRIMARY KEY' },
+      { name: 'id', type: 'TEXT NOT NULL PK' },
       { name: 'title', type: 'TEXT NOT NULL' },
       { name: 'artistsText', type: 'TEXT' },
       { name: 'durationText', type: 'TEXT' },
       { name: 'thumbnailUrl', type: 'TEXT' },
       { name: 'likedAt', type: 'INTEGER' },
-      { name: 'totalPlayTimeMs', type: 'INTEGER DEFAULT 0' },
+      { name: 'totalPlayTimeMs', type: 'INTEGER NOT NULL' },
     ],
     rowCount: 0,
   },
   {
     name: 'Playlist',
     columns: [
-      { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
+      { name: 'id', type: 'INTEGER PK AUTOINCREMENT' },
       { name: 'name', type: 'TEXT NOT NULL' },
       { name: 'browseId', type: 'TEXT' },
     ],
@@ -72,6 +72,97 @@ export const CUBIC_MUSIC_SCHEMA: TableInfo[] = [
       { name: 'songId', type: 'TEXT NOT NULL' },
       { name: 'playlistId', type: 'INTEGER NOT NULL' },
       { name: 'position', type: 'INTEGER NOT NULL' },
+    ],
+    rowCount: 0,
+  },
+  {
+    name: 'Artist',
+    columns: [
+      { name: 'id', type: 'TEXT NOT NULL PK' },
+      { name: 'name', type: 'TEXT' },
+      { name: 'thumbnailUrl', type: 'TEXT' },
+      { name: 'timestamp', type: 'INTEGER' },
+      { name: 'bookmarkedAt', type: 'INTEGER' },
+    ],
+    rowCount: 0,
+  },
+  {
+    name: 'SongArtistMap',
+    columns: [
+      { name: 'songId', type: 'TEXT NOT NULL' },
+      { name: 'artistId', type: 'TEXT NOT NULL' },
+    ],
+    rowCount: 0,
+  },
+  {
+    name: 'Album',
+    columns: [
+      { name: 'id', type: 'TEXT NOT NULL PK' },
+      { name: 'title', type: 'TEXT' },
+      { name: 'thumbnailUrl', type: 'TEXT' },
+      { name: 'year', type: 'TEXT' },
+      { name: 'authorsText', type: 'TEXT' },
+      { name: 'shareUrl', type: 'TEXT' },
+      { name: 'timestamp', type: 'INTEGER' },
+      { name: 'bookmarkedAt', type: 'INTEGER' },
+    ],
+    rowCount: 0,
+  },
+  {
+    name: 'SongAlbumMap',
+    columns: [
+      { name: 'songId', type: 'TEXT NOT NULL' },
+      { name: 'albumId', type: 'TEXT NOT NULL' },
+      { name: 'position', type: 'INTEGER' },
+    ],
+    rowCount: 0,
+  },
+  {
+    name: 'Event',
+    columns: [
+      { name: 'id', type: 'INTEGER PK AUTOINCREMENT' },
+      { name: 'songId', type: 'TEXT NOT NULL' },
+      { name: 'timestamp', type: 'INTEGER NOT NULL' },
+      { name: 'playTime', type: 'INTEGER NOT NULL' },
+    ],
+    rowCount: 0,
+  },
+  {
+    name: 'Format',
+    columns: [
+      { name: 'songId', type: 'TEXT NOT NULL PK' },
+      { name: 'itag', type: 'INTEGER' },
+      { name: 'mimeType', type: 'TEXT' },
+      { name: 'bitrate', type: 'INTEGER' },
+      { name: 'contentLength', type: 'INTEGER' },
+      { name: 'lastModified', type: 'INTEGER' },
+      { name: 'loudnessDb', type: 'REAL' },
+    ],
+    rowCount: 0,
+  },
+  {
+    name: 'Lyrics',
+    columns: [
+      { name: 'songId', type: 'TEXT NOT NULL PK' },
+      { name: 'fixed', type: 'TEXT' },
+      { name: 'synced', type: 'TEXT' },
+    ],
+    rowCount: 0,
+  },
+  {
+    name: 'SearchQuery',
+    columns: [
+      { name: 'id', type: 'INTEGER PK AUTOINCREMENT' },
+      { name: 'query', type: 'TEXT NOT NULL' },
+    ],
+    rowCount: 0,
+  },
+  {
+    name: 'QueuedMediaItem',
+    columns: [
+      { name: 'id', type: 'INTEGER PK AUTOINCREMENT' },
+      { name: 'mediaItem', type: 'BLOB NOT NULL' },
+      { name: 'position', type: 'INTEGER' },
     ],
     rowCount: 0,
   },
@@ -413,7 +504,7 @@ function cleanDuration(value: unknown, result: ConversionResult): string {
   return String(seconds);
 }
 
-// Generate Cubic Music compatible SQLite database
+// Generate Cubic Music compatible SQLite database with EXACT Room schema
 export async function generateCubicMusicSQLite(
   result: ConversionResult,
   selectedPlaylists?: number[]
@@ -421,64 +512,66 @@ export async function generateCubicMusicSQLite(
   const SqlJs = await getSqlJs();
   const db = new SqlJs.Database();
 
-  // Create Song table matching Cubic Music's expected schema
-  db.run(`
-    CREATE TABLE IF NOT EXISTS Song (
-      id TEXT PRIMARY KEY NOT NULL,
-      title TEXT NOT NULL,
-      artistsText TEXT,
-      durationText TEXT,
-      thumbnailUrl TEXT,
-      likedAt INTEGER,
-      totalPlayTimeMs INTEGER DEFAULT 0
-    )
-  `);
+  // ===== Create ALL tables matching the exact Cubic Music / Room schema =====
 
-  // Create Playlist table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS Playlist (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      browseId TEXT
-    )
-  `);
+  db.run(`CREATE TABLE \`Song\` (\`id\` TEXT NOT NULL, \`title\` TEXT NOT NULL, \`artistsText\` TEXT, \`durationText\` TEXT, \`thumbnailUrl\` TEXT, \`likedAt\` INTEGER, \`totalPlayTimeMs\` INTEGER NOT NULL, PRIMARY KEY(\`id\`))`);
 
-  // Create SongPlaylistMap junction table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS SongPlaylistMap (
-      songId TEXT NOT NULL,
-      playlistId INTEGER NOT NULL,
-      position INTEGER NOT NULL,
-      PRIMARY KEY (songId, playlistId),
-      FOREIGN KEY (songId) REFERENCES Song(id),
-      FOREIGN KEY (playlistId) REFERENCES Playlist(id)
-    )
-  `);
+  db.run(`CREATE TABLE \`Playlist\` (\`id\` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, \`name\` TEXT NOT NULL, \`browseId\` TEXT)`);
 
-  // Determine which playlists to export
+  db.run(`CREATE TABLE \`SongPlaylistMap\` (\`songId\` TEXT NOT NULL, \`playlistId\` INTEGER NOT NULL, \`position\` INTEGER NOT NULL, PRIMARY KEY(\`songId\`, \`playlistId\`), FOREIGN KEY(\`songId\`) REFERENCES \`Song\`(\`id\`) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(\`playlistId\`) REFERENCES \`Playlist\`(\`id\`) ON UPDATE NO ACTION ON DELETE CASCADE)`);
+
+  db.run(`CREATE TABLE \`Artist\` (\`id\` TEXT NOT NULL, \`name\` TEXT, \`thumbnailUrl\` TEXT, \`timestamp\` INTEGER, \`bookmarkedAt\` INTEGER, PRIMARY KEY(\`id\`))`);
+
+  db.run(`CREATE TABLE \`SongArtistMap\` (\`songId\` TEXT NOT NULL, \`artistId\` TEXT NOT NULL, PRIMARY KEY(\`songId\`, \`artistId\`), FOREIGN KEY(\`songId\`) REFERENCES \`Song\`(\`id\`) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(\`artistId\`) REFERENCES \`Artist\`(\`id\`) ON UPDATE NO ACTION ON DELETE CASCADE)`);
+
+  db.run(`CREATE TABLE \`Album\` (\`id\` TEXT NOT NULL, \`title\` TEXT, \`thumbnailUrl\` TEXT, \`year\` TEXT, \`authorsText\` TEXT, \`shareUrl\` TEXT, \`timestamp\` INTEGER, \`bookmarkedAt\` INTEGER, PRIMARY KEY(\`id\`))`);
+
+  db.run(`CREATE TABLE \`SongAlbumMap\` (\`songId\` TEXT NOT NULL, \`albumId\` TEXT NOT NULL, \`position\` INTEGER, PRIMARY KEY(\`songId\`, \`albumId\`), FOREIGN KEY(\`songId\`) REFERENCES \`Song\`(\`id\`) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(\`albumId\`) REFERENCES \`Album\`(\`id\`) ON UPDATE NO ACTION ON DELETE CASCADE)`);
+
+  db.run(`CREATE TABLE \`SearchQuery\` (\`id\` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, \`query\` TEXT NOT NULL)`);
+
+  db.run(`CREATE TABLE \`QueuedMediaItem\` (\`id\` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, \`mediaItem\` BLOB NOT NULL, \`position\` INTEGER)`);
+
+  db.run(`CREATE TABLE \`Format\` (\`songId\` TEXT NOT NULL, \`itag\` INTEGER, \`mimeType\` TEXT, \`bitrate\` INTEGER, \`contentLength\` INTEGER, \`lastModified\` INTEGER, \`loudnessDb\` REAL, PRIMARY KEY(\`songId\`), FOREIGN KEY(\`songId\`) REFERENCES \`Song\`(\`id\`) ON UPDATE NO ACTION ON DELETE CASCADE)`);
+
+  db.run(`CREATE TABLE \`Event\` (\`id\` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, \`songId\` TEXT NOT NULL, \`timestamp\` INTEGER NOT NULL, \`playTime\` INTEGER NOT NULL, FOREIGN KEY(\`songId\`) REFERENCES \`Song\`(\`id\`) ON UPDATE NO ACTION ON DELETE CASCADE)`);
+
+  db.run(`CREATE TABLE \`Lyrics\` (\`songId\` TEXT NOT NULL, \`fixed\` TEXT, \`synced\` TEXT, PRIMARY KEY(\`songId\`), FOREIGN KEY(\`songId\`) REFERENCES \`Song\`(\`id\`) ON UPDATE NO ACTION ON DELETE CASCADE)`);
+
+  // ===== Create indexes =====
+  db.run(`CREATE INDEX \`index_SongPlaylistMap_songId\` ON \`SongPlaylistMap\` (\`songId\`)`);
+  db.run(`CREATE INDEX \`index_SongPlaylistMap_playlistId\` ON \`SongPlaylistMap\` (\`playlistId\`)`);
+  db.run(`CREATE INDEX \`index_SongArtistMap_songId\` ON \`SongArtistMap\` (\`songId\`)`);
+  db.run(`CREATE INDEX \`index_SongArtistMap_artistId\` ON \`SongArtistMap\` (\`artistId\`)`);
+  db.run(`CREATE INDEX \`index_SongAlbumMap_songId\` ON \`SongAlbumMap\` (\`songId\`)`);
+  db.run(`CREATE INDEX \`index_SongAlbumMap_albumId\` ON \`SongAlbumMap\` (\`albumId\`)`);
+  db.run(`CREATE UNIQUE INDEX \`index_SearchQuery_query\` ON \`SearchQuery\` (\`query\`)`);
+  db.run(`CREATE INDEX \`index_Event_songId\` ON \`Event\` (\`songId\`)`);
+
+  // ===== Create view =====
+  db.run(`CREATE VIEW \`SortedSongPlaylistMap\` AS SELECT * FROM SongPlaylistMap ORDER BY position`);
+
+  // ===== Room metadata tables =====
+  db.run(`CREATE TABLE room_master_table (id INTEGER PRIMARY KEY, identity_hash TEXT)`);
+  db.run(`INSERT INTO room_master_table (id, identity_hash) VALUES (42, '205c24811149a247279bcbfdc2d6c396')`);
+
+  db.run(`CREATE TABLE android_metadata (locale TEXT)`);
+  db.run(`INSERT INTO android_metadata VALUES ('en_US')`);
+
+  // ===== Insert song data =====
   const playlistsToExport = selectedPlaylists
     ? result.playlists.filter(p => selectedPlaylists.includes(p.id))
     : result.playlists.filter(p => p.selected !== false);
 
-  // Collect all unique songs from selected playlists
-  const songIdsInPlaylists = new Set<string>();
-  for (const playlist of playlistsToExport) {
-    for (const song of playlist.songs) {
-      songIdsInPlaylists.add(song.songId);
-    }
-  }
-
-  // Insert songs (both in playlists and standalone)
   const insertSong = db.prepare(`
     INSERT OR REPLACE INTO Song (id, title, artistsText, durationText, thumbnailUrl, likedAt, totalPlayTimeMs)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
-  // Insert all songs
   const addedSongIds = new Set<string>();
   for (const song of result.songs) {
     if (addedSongIds.has(song.songId)) continue;
-    
+
     // Convert duration seconds to mm:ss format
     const durationSecs = parseInt(song.duration) || 0;
     const minutes = Math.floor(durationSecs / 60);
@@ -498,7 +591,7 @@ export async function generateCubicMusicSQLite(
   }
   insertSong.free();
 
-  // Insert playlists and mappings
+  // ===== Insert playlists and mappings =====
   const insertPlaylist = db.prepare(`INSERT INTO Playlist (name, browseId) VALUES (?, ?)`);
   const insertMapping = db.prepare(`INSERT OR REPLACE INTO SongPlaylistMap (songId, playlistId, position) VALUES (?, ?, ?)`);
 
@@ -513,11 +606,10 @@ export async function generateCubicMusicSQLite(
   insertPlaylist.free();
   insertMapping.free();
 
-  // Set PRAGMA user_version to 27 (Cubic Music expected version)
-  // Kreate uses version 28 which causes Room migration crashes
-  db.run("PRAGMA user_version = 27");
+  // Set PRAGMA user_version to 23 (matches reference Cubic Music DB)
+  // The app will run migrations 23→27 automatically
+  db.run("PRAGMA user_version = 23");
 
-  // Export database as binary
   const data = db.export();
   db.close();
   
