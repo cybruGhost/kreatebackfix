@@ -513,6 +513,10 @@ export async function generateCubicMusicSQLite(
   insertPlaylist.free();
   insertMapping.free();
 
+  // Set PRAGMA user_version to 27 (Cubic Music expected version)
+  // Kreate uses version 28 which causes Room migration crashes
+  db.run("PRAGMA user_version = 27");
+
   // Export database as binary
   const data = db.export();
   db.close();
