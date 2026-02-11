@@ -4,7 +4,7 @@ Tired of backups crashing your music apps? This tool is here to help!
 Convert your **Kreate backup** to a **Cubic Music / RiPlay / N-Zik** compatible format. It fixes malformed data and preserves your playlists.
 
 ---
-This is hosted on free lovable platform due to  server charges
+This is hosted on free vercel platform due to  server charges . ALL i care is thta it works and fixes a problem
 ## ⚡ Features
 
 - **Browser only** — no data leaves your computer
