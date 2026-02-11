@@ -4,6 +4,8 @@ import { FileDropzone } from '@/components/FileDropzone';
 import { ConversionProgress } from '@/components/ConversionProgress';
 import { SQLiteViewer } from '@/components/SQLiteViewer';
 import { Button } from '@/components/ui/button';
+import { ScrollButton } from '@/components/ScrollButton';
+import { AboutDialog } from '@/components/AboutDialog';
 import { 
   parseKreateSQLite, 
   parseAndSanitizeCSV, 
@@ -200,6 +202,10 @@ const Index = () => {
           <p>All processing happens in your browser. No data uploaded.</p>
         </footer>
       </div>
+
+      {/* Floating buttons */}
+      <ScrollButton />
+      <AboutDialog />
     </div>
   );
 };
