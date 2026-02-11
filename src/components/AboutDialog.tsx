@@ -155,19 +155,23 @@ export function AboutDialog() {
                 {stats.downloadTrend.length > 1 && (
                   <div className="mt-3 space-y-1.5">
                     <p className="text-xs text-muted-foreground font-medium">Download trend by release</p>
-                    <div className="flex items-end gap-1 h-16">
-                      {stats.downloadTrend.map((d, i) => (
-                        <div key={d.tag} className="flex-1 flex flex-col items-center gap-0.5">
-                          <div
-                            className="w-full rounded-t bg-primary/70 hover:bg-primary transition-colors min-h-[2px]"
-                            style={{ height: `${Math.max((d.downloads / maxDownloads) * 100, 3)}%` }}
-                            title={`${d.tag}: ${d.downloads} downloads`}
-                          />
-                          <span className="text-[8px] text-muted-foreground truncate w-full text-center">
-                            {d.tag.replace(/^v/, '')}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="flex items-end gap-1" style={{ height: 80 }}>
+                      {stats.downloadTrend.map((d) => {
+                        const barH = Math.max((d.downloads / maxDownloads) * 64, 3);
+                        return (
+                          <div key={d.tag} className="flex-1 flex flex-col items-center justify-end h-full">
+                            <span className="text-[8px] text-muted-foreground mb-0.5">{formatNumber(d.downloads)}</span>
+                            <div
+                              className="w-full rounded-t bg-primary/70 hover:bg-primary transition-colors"
+                              style={{ height: barH }}
+                              title={`${d.tag}: ${d.downloads} downloads`}
+                            />
+                            <span className="text-[8px] text-muted-foreground truncate w-full text-center mt-0.5">
+                              {d.tag.replace(/^v/, '')}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
