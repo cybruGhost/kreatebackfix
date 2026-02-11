@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Info, ExternalLink, Coffee, Github, Download, Tag, TrendingUp } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Info, ExternalLink, Coffee, Github, Download, Tag, TrendingUp, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -76,9 +76,32 @@ function formatNumber(n: number) {
   return n.toString();
 }
 
+const TEASER_TEXTS = ['More about Cubic Music?', 'Support the project ☕', 'Follow me on GitHub'];
+
 export function AboutDialog() {
   const stats = useGitHubStats();
   const maxDownloads = Math.max(...stats.downloadTrend.map(d => d.downloads), 1);
+  const [copied, setCopied] = useState(false);
+  const [teaserIndex, setTeaserIndex] = useState(-1);
+  const [teaserVisible, setTeaserVisible] = useState(false);
+
+  useEffect(() => {
+    const showTeaser = () => {
+      const idx = Math.floor(Math.random() * TEASER_TEXTS.length);
+      setTeaserIndex(idx);
+      setTeaserVisible(true);
+      setTimeout(() => setTeaserVisible(false), 2500);
+    };
+    const interval = setInterval(showTeaser, 6000 + Math.random() * 4000);
+    const initial = setTimeout(showTeaser, 3000);
+    return () => { clearInterval(interval); clearTimeout(initial); };
+  }, []);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText('https://thecub.netlify.app/cubicmusic');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <Dialog>
@@ -86,10 +109,21 @@ export function AboutDialog() {
         <Button
           variant="ghost"
           size="icon"
-          className="fixed bottom-4 right-16 z-50 h-10 w-10 rounded-full border border-border/50 bg-card/90 backdrop-blur-sm shadow-lg hover:bg-primary/20 hover:border-primary/50 transition-all"
+          className="fixed bottom-4 right-16 z-50 h-10 w-10 rounded-full border border-primary/40 bg-card/90 backdrop-blur-sm shadow-lg shadow-primary/20 hover:bg-primary/20 hover:border-primary/50 transition-all animate-glow-pulse"
           aria-label="About"
         >
-          <Info className="h-4 w-4" />
+          <Info className="h-4 w-4 text-primary" />
+          {teaserIndex >= 0 && (
+            <span
+              className={`absolute right-12 whitespace-nowrap text-xs font-medium text-primary bg-card/95 backdrop-blur-sm border border-primary/30 rounded-full px-3 py-1 shadow-md transition-all duration-500 ${
+                teaserVisible
+                  ? 'opacity-100 translate-x-0'
+                  : 'opacity-0 translate-x-4 pointer-events-none'
+              }`}
+            >
+              {TEASER_TEXTS[teaserIndex]}
+            </span>
+          )}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md bg-card border-border/50 max-h-[85vh] overflow-y-auto">
@@ -181,16 +215,25 @@ export function AboutDialog() {
 
           {/* Links */}
           <div className="flex flex-col gap-2">
-            <a
-              href="https://github.com/cybruGhost/Cubic-Music/releases/latest"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 p-2.5 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-colors text-primary font-medium"
-            >
-              <Download className="w-4 h-4" />
-              Download Cubic Music
-              <ExternalLink className="w-3 h-3 ml-auto opacity-60" />
-            </a>
+            <div className="flex gap-2">
+              <a
+                href="https://thecub.netlify.app/cubicmusic"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center gap-2 p-2.5 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-colors text-primary font-medium"
+              >
+                <Download className="w-4 h-4" />
+                Download Cubic Music
+                <ExternalLink className="w-3 h-3 ml-auto opacity-60" />
+              </a>
+              <button
+                onClick={handleCopy}
+                className="flex items-center justify-center w-10 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-colors text-primary"
+                title="Copy download link"
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
             <a
               href="https://github.com/cybruGhost/Cubic-Music"
               target="_blank"
