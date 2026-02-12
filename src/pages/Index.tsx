@@ -109,14 +109,14 @@ const Index = () => {
           
           <p className="text-sm sm:text-base text-muted-foreground max-w-lg mx-auto px-4">
             Convert your Kreate backup to Cubic Music format. 
-            Fixes malformed data and preserves your playlists.
+            Fixes malformed data and preserves your playlists, albums, artists & favorites.
           </p>
         </header>
 
         {/* Feature badges */}
         <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-6 sm:mb-10">
           <FeatureBadge icon={<Shield className="w-3 h-3 sm:w-4 sm:h-4" />} text="Browser Only" />
-          <FeatureBadge icon={<Music2 className="w-3 h-3 sm:w-4 sm:h-4" />} text="Keeps Playlists" />
+          <FeatureBadge icon={<Music2 className="w-3 h-3 sm:w-4 sm:h-4" />} text="Keeps Everything" />
           <FeatureBadge icon={<Zap className="w-3 h-3 sm:w-4 sm:h-4" />} text="Instant" />
         </div>
 
@@ -190,6 +190,7 @@ const Index = () => {
                   <li>Reads SQLite databases directly</li>
                   <li>Fixes malformed data entries</li>
                   <li>Maps Kreate schema to Cubic Music format</li>
+                  <li>Transfers albums, artists, favorites & play history</li>
                   <li>Generates clean, importable SQLite backup</li>
                 </ul>
               </div>
