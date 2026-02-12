@@ -5,29 +5,41 @@ interface OutputPreviewProps {
   songCount: number;
   playlistCount: number;
   mappingCount: number;
+  albumCount: number;
+  artistCount: number;
+  songAlbumMapCount: number;
+  songArtistMapCount: number;
+  eventCount: number;
+  formatCount: number;
+  lyricsCount: number;
+  searchQueryCount: number;
 }
 
-export function OutputPreview({ songCount, playlistCount, mappingCount }: OutputPreviewProps) {
-  const tables = [
-    {
-      name: 'Song',
-      description: 'All unique songs',
-      rowCount: songCount,
-      columns: CUBIC_MUSIC_SCHEMA[0].columns,
-    },
-    {
-      name: 'Playlist',
-      description: 'Your playlists',
-      rowCount: playlistCount,
-      columns: CUBIC_MUSIC_SCHEMA[1].columns,
-    },
-    {
-      name: 'SongPlaylistMap',
-      description: 'Song-playlist links',
-      rowCount: mappingCount,
-      columns: CUBIC_MUSIC_SCHEMA[2].columns,
-    },
-  ];
+export function OutputPreview({
+  songCount, playlistCount, mappingCount,
+  albumCount, artistCount, songAlbumMapCount, songArtistMapCount,
+  eventCount, formatCount, lyricsCount, searchQueryCount,
+}: OutputPreviewProps) {
+  const rowCounts: Record<string, number> = {
+    Song: songCount,
+    Playlist: playlistCount,
+    SongPlaylistMap: mappingCount,
+    Artist: artistCount,
+    SongArtistMap: songArtistMapCount,
+    Album: albumCount,
+    SongAlbumMap: songAlbumMapCount,
+    Event: eventCount,
+    Format: formatCount,
+    Lyrics: lyricsCount,
+    SearchQuery: searchQueryCount,
+    QueuedMediaItem: 0,
+  };
+
+  // Only show tables that have data or are essential (Song, Playlist, SongPlaylistMap)
+  const essentialTables = ['Song', 'Playlist', 'SongPlaylistMap'];
+  const tables = CUBIC_MUSIC_SCHEMA.filter(t =>
+    essentialTables.includes(t.name) || (rowCounts[t.name] ?? 0) > 0
+  );
 
   return (
     <div className="glass-card rounded-xl overflow-hidden">
@@ -37,7 +49,7 @@ export function OutputPreview({ songCount, playlistCount, mappingCount }: Output
           <span className="font-medium text-sm sm:text-base">Output SQLite Structure</span>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          Preview of the generated database structure
+          Preview of the generated database — all your data will be transferred
         </p>
       </div>
 
@@ -50,10 +62,9 @@ export function OutputPreview({ songCount, playlistCount, mappingCount }: Output
                 <span className="font-mono text-sm font-medium">{table.name}</span>
               </div>
               <span className="text-xs bg-success/10 text-success px-2 py-0.5 rounded">
-                {table.rowCount} rows
+                {rowCounts[table.name] ?? 0} rows
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mb-2">{table.description}</p>
             <div className="flex flex-wrap gap-1">
               {table.columns.map((col, j) => (
                 <div key={j} className="flex items-center gap-1">

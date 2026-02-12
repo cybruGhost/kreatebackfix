@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Database, Download, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { Database, Download, ChevronDown, ChevronUp, Eye, EyeOff, Disc3, Users, Music, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -46,11 +46,78 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
     onDownload(selectedIds);
   };
 
+  // Count favorites
+  const favSongs = result.songs.filter(s => s.likedAt).length;
+  const favAlbums = result.albums.filter(a => a.bookmarkedAt).length;
+  const favArtists = result.artists.filter(a => a.bookmarkedAt).length;
+
   return (
     <div className="w-full space-y-4">
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <StatBadge label="Total Songs" value={totalSongs} color="primary" />
+        <StatBadge label="Songs" value={totalSongs} color="primary" icon={<Music className="w-3 h-3" />} />
+        <StatBadge label="Albums" value={result.albums.length} color="accent" icon={<Disc3 className="w-3 h-3" />} />
+        <StatBadge label="Artists" value={result.artists.length} color="success" icon={<Users className="w-3 h-3" />} />
+      </div>
+
+      {/* Favorites Row */}
+      {(favSongs > 0 || favAlbums > 0 || favArtists > 0) && (
+        <div className="glass-card rounded-xl p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Heart className="w-4 h-4 text-destructive fill-destructive" />
+            <span className="text-sm font-medium">Favorites Found</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {favSongs > 0 && (
+              <span className="px-2 py-1 bg-destructive/10 text-destructive rounded-full text-xs font-medium">
+                {favSongs} liked songs
+              </span>
+            )}
+            {favAlbums > 0 && (
+              <span className="px-2 py-1 bg-destructive/10 text-destructive rounded-full text-xs font-medium">
+                {favAlbums} bookmarked albums
+              </span>
+            )}
+            {favArtists > 0 && (
+              <span className="px-2 py-1 bg-destructive/10 text-destructive rounded-full text-xs font-medium">
+                {favArtists} bookmarked artists
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2">
+            ✅ All favorites will be preserved in your converted backup
+          </p>
+        </div>
+      )}
+
+      {/* Extra data stats */}
+      {(result.events.length > 0 || result.formats.length > 0 || result.lyrics.length > 0 || result.searchQueries.length > 0) && (
+        <div className="flex flex-wrap gap-2">
+          {result.events.length > 0 && (
+            <span className="px-2.5 py-1 bg-muted/50 border border-border/50 rounded-full text-xs">
+              📊 {result.events.length} play events
+            </span>
+          )}
+          {result.formats.length > 0 && (
+            <span className="px-2.5 py-1 bg-muted/50 border border-border/50 rounded-full text-xs">
+              🎵 {result.formats.length} audio formats
+            </span>
+          )}
+          {result.lyrics.length > 0 && (
+            <span className="px-2.5 py-1 bg-muted/50 border border-border/50 rounded-full text-xs">
+              📝 {result.lyrics.length} lyrics
+            </span>
+          )}
+          {result.searchQueries.length > 0 && (
+            <span className="px-2.5 py-1 bg-muted/50 border border-border/50 rounded-full text-xs">
+              🔍 {result.searchQueries.length} searches
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Playlists stat */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-4">
         <StatBadge label="Playlists" value={playlists.length} color="accent" />
         <StatBadge label="To Export" value={songsInSelectedPlaylists} color="success" />
       </div>
@@ -173,6 +240,14 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
           songCount={totalSongs}
           playlistCount={selectedPlaylists.length}
           mappingCount={songsInSelectedPlaylists}
+          albumCount={result.albums.length}
+          artistCount={result.artists.length}
+          songAlbumMapCount={result.songAlbumMaps.length}
+          songArtistMapCount={result.songArtistMaps.length}
+          eventCount={result.events.length}
+          formatCount={result.formats.length}
+          lyricsCount={result.lyrics.length}
+          searchQueryCount={result.searchQueries.length}
         />
       )}
 
@@ -257,7 +332,7 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
   );
 }
 
-function StatBadge({ label, value, color }: { label: string; value: number; color: 'primary' | 'accent' | 'success' }) {
+function StatBadge({ label, value, color, icon }: { label: string; value: number; color: 'primary' | 'accent' | 'success'; icon?: React.ReactNode }) {
   const colorClasses = {
     primary: 'bg-primary/10 text-primary border-primary/20',
     accent: 'bg-accent/10 text-accent border-accent/20',
@@ -269,6 +344,7 @@ function StatBadge({ label, value, color }: { label: string; value: number; colo
       "flex flex-col items-center justify-center py-2 sm:py-3 px-2 sm:px-4 rounded-lg border",
       colorClasses[color]
     )}>
+      {icon && <span className="mb-0.5">{icon}</span>}
       <span className="text-lg sm:text-2xl font-bold">{value}</span>
       <span className="text-[10px] sm:text-xs opacity-80">{label}</span>
     </div>
