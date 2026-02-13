@@ -76,9 +76,13 @@ const Index = () => {
     
     try {
       setCurrentStep('Generating SQLite database...');
+      
+      // Yield to the browser so UI updates before heavy work
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
       const sqliteData = await generateCubicMusicSQLite(result, selectedPlaylists);
       
-      const blob = new Blob([new Uint8Array(sqliteData)], { type: 'application/vnd.sqlite3' });
+      const blob = new Blob([sqliteData.buffer as ArrayBuffer], { type: 'application/vnd.sqlite3' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -86,9 +90,13 @@ const Index = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      
+      // Delay revoke to ensure download starts
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setCurrentStep('Download started!');
     } catch (error) {
       console.error('Download error:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Download failed');
     }
   }, [result]);
 

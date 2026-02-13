@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Database, Download, ChevronDown, ChevronUp, Eye, EyeOff, Disc3, Users, Music, Heart } from 'lucide-react';
+import { Database, Download, ChevronDown, ChevronUp, Eye, EyeOff, Disc3, Users, Music, Heart, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -18,7 +18,7 @@ import { OutputPreview } from '@/components/OutputPreview';
 
 interface SQLiteViewerProps {
   result: ConversionResult;
-  onDownload: (selectedPlaylists: number[]) => void;
+  onDownload: (selectedPlaylists: number[]) => Promise<void>;
 }
 
 export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
@@ -41,9 +41,16 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
     setPlaylists(prev => prev.map(p => ({ ...p, selected })));
   }, []);
 
-  const handleDownload = () => {
-    const selectedIds = playlists.filter(p => p.selected).map(p => p.id);
-    onDownload(selectedIds);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const selectedIds = playlists.filter(p => p.selected).map(p => p.id);
+      await onDownload(selectedIds);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // Count favorites
@@ -320,12 +327,21 @@ export function SQLiteViewer({ result, onDownload }: SQLiteViewerProps) {
       {totalSongs > 0 && (
         <Button 
           onClick={handleDownload}
-          disabled={selectedPlaylists.length === 0 && playlists.length > 0}
+          disabled={(selectedPlaylists.length === 0 && playlists.length > 0) || isDownloading}
           className="w-full h-12 sm:h-14 text-base sm:text-lg glow-effect"
           size="lg"
         >
-          <Download className="w-5 h-5 mr-2" />
-          Download Fixed Backup
+          {isDownloading ? (
+            <>
+              <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+              Generating Backup...
+            </>
+          ) : (
+            <>
+              <Download className="w-5 h-5 mr-2" />
+              Download Fixed Backup
+            </>
+          )}
         </Button>
       )}
     </div>
