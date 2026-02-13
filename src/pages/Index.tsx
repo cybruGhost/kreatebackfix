@@ -31,7 +31,7 @@ const Index = () => {
 
     try {
       const buffer = await file.arrayBuffer();
-      const fileType = detectFileType(buffer);
+      const fileType = detectFileType(buffer, file.name);
 
       setProgress(25);
       setStatus('parsing');
@@ -49,7 +49,14 @@ const Index = () => {
         const text = new TextDecoder('utf-8').decode(buffer);
         conversionResult = parseAndSanitizeCSV(text);
       } else {
-        throw new Error('Unsupported file format. Please upload a .sqlite, .db, or .csv file.');
+        // Last resort: try SQLite anyway for malformed Kreate backups
+        setCurrentStep('Unknown format — attempting SQLite parse...');
+        setProgress(40);
+        try {
+          conversionResult = await parseKreateSQLite(buffer);
+        } catch {
+          throw new Error('Unsupported file format. Please upload a .sqlite, .db, or .csv file.');
+        }
       }
 
       setProgress(100);
