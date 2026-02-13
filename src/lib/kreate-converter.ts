@@ -387,6 +387,27 @@ function findTable(tableNames: string[], exactMatches: string[], ...partials: st
 
 // ===== Extraction helpers =====
 
+function extractVideoIdFromUrl(url: string): string | null {
+  if (!url) return null;
+  // Match YouTube video IDs from thumbnail URLs like:
+  // https://i.ytimg.com/vi/VIDEO_ID/... or https://img.youtube.com/vi/VIDEO_ID/...
+  // or https://lh3.googleusercontent.com/... (can't extract)
+  const ytMatch = url.match(/\/vi\/([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) return ytMatch[1];
+  // Also try watch?v= pattern
+  const watchMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+  if (watchMatch) return watchMatch[1];
+  return null;
+}
+
+function generateThumbnailUrl(songId: string): string {
+  // YouTube thumbnail URL pattern - works for all valid video IDs
+  if (songId && /^[a-zA-Z0-9_-]{11}$/.test(songId)) {
+    return `https://img.youtube.com/vi/${songId}/mqdefault.jpg`;
+  }
+  return '';
+}
+
 function extractSongs(db: Database, tableName: string, result: ConversionResult): Song[] {
   const songs: Song[] = [];
   try {
@@ -405,19 +426,65 @@ function extractSongs(db: Database, tableName: string, result: ConversionResult)
 
     for (const row of rows) {
       try {
+        let songId = cleanAndReport(row[idIdx], 'songId', result);
+        let thumbnailUrl = cleanAndReport(row[thumbIdx], 'thumbnailUrl', result);
+
+        // If songId is missing, try to extract it from the thumbnail URL
+        if (!songId && thumbnailUrl) {
+          const extracted = extractVideoIdFromUrl(thumbnailUrl);
+          if (extracted) {
+            songId = extracted;
+            result.cleaningReport.push({
+              field: 'songId',
+              original: '(empty)',
+              cleaned: songId,
+              issue: 'derived from thumbnail URL',
+            });
+          }
+        }
+
+        // If thumbnailUrl is missing but we have a valid YouTube video ID, generate it
+        if (!thumbnailUrl && songId) {
+          thumbnailUrl = generateThumbnailUrl(songId);
+          if (thumbnailUrl) {
+            result.cleaningReport.push({
+              field: 'thumbnailUrl',
+              original: '(empty)',
+              cleaned: thumbnailUrl,
+              issue: 'generated from song ID',
+            });
+          }
+        }
+
+        // Last resort: if songId is still empty, generate one from title+artist hash
+        if (!songId) {
+          const title = cleanAndReport(row[titleIdx], 'title', result);
+          const artist = cleanAndReport(row[artistIdx], 'artists', result);
+          if (title) {
+            // Create a deterministic ID from title+artist so duplicates merge
+            songId = 'gen_' + simpleHash(title + '|' + artist);
+            result.cleaningReport.push({
+              field: 'songId',
+              original: '(empty)',
+              cleaned: songId,
+              issue: 'generated from title+artist hash (no original ID)',
+            });
+          }
+        }
+
         const song: Song = {
-          songId: cleanAndReport(row[idIdx], 'songId', result),
+          songId,
           title: cleanAndReport(row[titleIdx], 'title', result),
           artists: cleanAndReport(row[artistIdx], 'artists', result),
           duration: cleanDuration(row[durationIdx], result),
-          thumbnailUrl: cleanAndReport(row[thumbIdx], 'thumbnailUrl', result),
+          thumbnailUrl,
           likedAt: likedIdx >= 0 ? Number(row[likedIdx]) || undefined : undefined,
           totalPlayTimeMs: playTimeIdx >= 0 ? Number(row[playTimeIdx]) || 0 : 0,
         };
         if (song.songId && song.songId.length > 0) {
           songs.push(song);
         } else {
-          result.warnings.push(`Skipped song with empty ID`);
+          result.warnings.push(`Skipped song with no recoverable ID or title`);
         }
       } catch (e) {
         result.warnings.push(`Could not parse song row`);
@@ -427,6 +494,16 @@ function extractSongs(db: Database, tableName: string, result: ConversionResult)
     result.errors.push(`Error reading songs table: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
   return songs;
+}
+
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
 }
 
 function extractPlaylists(db: Database, tableName: string, result: ConversionResult): Playlist[] {
@@ -858,7 +935,9 @@ export async function generateCubicMusicSQLite(
     const minutes = Math.floor(durationSecs / 60);
     const seconds = durationSecs % 60;
     const durationText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    insertSong.run([song.songId, song.title || 'Unknown Title', song.artists || '', durationText, song.thumbnailUrl || '', song.likedAt || null, song.totalPlayTimeMs || 0]);
+    // Ensure every song has a thumbnail URL - generate from ID if missing
+    const thumbUrl = song.thumbnailUrl || generateThumbnailUrl(song.songId);
+    insertSong.run([song.songId, song.title || 'Unknown Title', song.artists || '', durationText, thumbUrl, song.likedAt || null, song.totalPlayTimeMs || 0]);
     addedSongIds.add(song.songId);
   }
   insertSong.free();
