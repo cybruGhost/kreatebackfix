@@ -1051,9 +1051,11 @@ function parseCSVLine(line: string): string[] {
   return values;
 }
 
-// Detect file type
-export function detectFileType(buffer: ArrayBuffer): 'sqlite' | 'csv' | 'unknown' {
+// Detect file type - handles 0kb Kreate backups and various formats
+export function detectFileType(buffer: ArrayBuffer, fileName?: string): 'sqlite' | 'csv' | 'unknown' {
   const bytes = new Uint8Array(buffer);
+  
+  // Check SQLite magic header "SQLite format 3\000"
   const sqliteHeader = [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65];
   if (bytes.length >= 6) {
     let isSqlite = true;
@@ -1062,9 +1064,20 @@ export function detectFileType(buffer: ArrayBuffer): 'sqlite' | 'csv' | 'unknown
     }
     if (isSqlite) return 'sqlite';
   }
+  
+  // For 0kb / very small files that Kreate sometimes exports,
+  // trust the file extension since the header may be missing
+  if (fileName) {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (ext === 'sqlite' || ext === 'db') return 'sqlite';
+    if (ext === 'csv') return 'csv';
+  }
+  
+  // Try CSV detection from content
   try {
     const text = new TextDecoder('utf-8').decode(buffer.slice(0, 1000));
     if (text.includes(',') && (text.includes('\n') || text.includes('\r'))) return 'csv';
   } catch { /* ignore */ }
+  
   return 'unknown';
 }

@@ -7,9 +7,18 @@ import scene404 from "@/assets/404-scene.jpg";
 const NotFound = () => {
   const location = useLocation();
   const [shake, setShake] = useState(false);
+  const [flash, setFlash] = useState(true);
 
   useEffect(() => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    
+    // Initial flash sequence on load
+    setTimeout(() => setFlash(false), 150);
+    setTimeout(() => setFlash(true), 300);
+    setTimeout(() => setFlash(false), 400);
+    setTimeout(() => setFlash(true), 500);
+    setTimeout(() => setFlash(false), 600);
+    
     const interval = setInterval(() => {
       setShake(true);
       setTimeout(() => setShake(false), 600);
@@ -19,6 +28,15 @@ const NotFound = () => {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
+      {/* Nuclear flash overlay */}
+      <div
+        className="pointer-events-none fixed inset-0 z-50 transition-opacity"
+        style={{
+          opacity: flash ? 1 : 0,
+          background: 'radial-gradient(circle at 70% 30%, hsl(45 100% 95%), hsl(35 100% 70%) 40%, transparent 70%)',
+          transitionDuration: flash ? '50ms' : '300ms',
+        }}
+      />
       {/* Background image */}
       <div className="absolute inset-0">
         <img
