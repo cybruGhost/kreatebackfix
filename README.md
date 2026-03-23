@@ -5,7 +5,7 @@ Convert your **Kreate backup** to a **Cubic Music / RiPlay / N-Zik** compatible 
 
 ---
 This is hosted on free vercel platform due to  server charges . ALL i care is thta it works and fixes a problem
-## ⚡ Features
+## Features
 
 - **Browser only** — no data leaves your computer
 - **Instant conversion** — upload, fix, download
