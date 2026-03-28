@@ -1,10 +1,10 @@
 # 🎉 Kreate Backup Converter for Cubic Music / RiPlay / N-Zik 🎉
 
-does your App crash after uploading ur kreate backup  
+does your App crash after uploading ur kreate backup?
 Convert your **Kreate backup** to a **Cubic Music / RiPlay / N-Zik** compatible format. It fixes malformed data and preserves your playlists.
 
 ---
-This is hosted on free vercel platform due to  server charges . ALL i care is thta it works and fixes a problem
+This is hosted on free vercel platform due to  server charges . ALL i care is that it works and fixes a problem
 ## Features
 
 - **Browser only** — no data leaves your computer
